@@ -41,9 +41,15 @@ from ...data_utils.example import Example
 
 from ..base_dataset import Split
 
+
 logger = logging.getLogger(__name__)
 
-ISO_to_LANG = {'en': 'English', 'en-US': 'English', 'fa': 'Farsi', 'it': 'Italian', 'zh': 'Chinese'}
+ISO_to_LANG = {'en': 'English', 'en-US': 'English', 'fa': 'Farsi', 'it': 'Italian', 'zh': 'Chinese',
+               'hr': 'Croatian', 'ja': 'Japanese', 'ko': 'Korean', 'ru': 'Russian', 'es': 'Spanish',
+               'sv': 'Swedish', 'tr': 'Turkish', 'hi': 'Hindi', 'fr': 'French', 'de': 'German',
+               'pl': 'Polsih', 'ar': 'Arabic', 'vi': 'Vietnamese', 'ji': 'Yiddish', 'pt': 'Portuguese',
+               'el': 'Greek', 'he': 'Hebrew', 'si': 'Sinhala', 'ta': 'Tamil', 'fi': 'Finnish', 'cs': 'Czech',
+               'no': 'Norwegian', 'tl': 'Filipino', 'da': 'Danish'}
 
 class AlmondDataset(CQA):
     """Obtaining dataset for Almond semantic parsing task"""
@@ -353,7 +359,7 @@ class AlmondMultiLingual(BaseAlmondTask):
 
     def _make_example(self, parts, dir_name):
         _id, sentence, target_code = parts
-        language = ISO_to_LANG.get(dir_name, 'English')
+        language = ISO_to_LANG.get(dir_name, 'Undetected')
         question = 'translate from {} to thingtalk'.format(language)
         context = sentence
         answer = target_code
