@@ -112,7 +112,7 @@ class TransformerEmbedding(torch.nn.Module):
         self.model.resize_token_embeddings(len(vocab))
 
     def forward(self, input: torch.Tensor, padding=None):
-        last_hidden_state, _pooled, hidden_states = self.model(input, attention_mask=(~padding).to(dtype=torch.float))
+        last_hidden_state, hidden_states = self.model(input, attention_mask=(~padding).to(dtype=torch.float))
 
         return EmbeddingOutput(all_layers=hidden_states, last_layer=last_hidden_state)
 
@@ -159,7 +159,7 @@ class PretrainedLMEmbedding(torch.nn.Module):
 
 
 def _is_bert(embedding_name):
-    return embedding_name.startswith('bert-')
+    return embedding_name.startswith('bert-') or embedding_name.startswith('google/electra-')
 
 
 def _is_xlmr(embedding_name):

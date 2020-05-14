@@ -29,6 +29,7 @@ trap on_error ERR INT TERM
 
 i=0
 for hparams in \
+      "--encoder_embeddings=google/electra-base-generator --decoder_embeddings= --trainable_decoder_embeddings=50 --seq2seq_encoder=Identity --dimension=256" \
       "--encoder_embeddings=small_glove+char --decoder_embeddings=small_glove+char" \
       "--encoder_embeddings=bert-base-multilingual-uncased --decoder_embeddings= --trainable_decoder_embeddings=50 --seq2seq_encoder=Identity --dimension=768" \
       "--encoder_embeddings=bert-base-uncased --decoder_embeddings= --trainable_decoder_embeddings=50" \
