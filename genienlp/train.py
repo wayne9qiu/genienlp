@@ -79,7 +79,7 @@ def prepare_data(args, logger):
         kwargs = {'test': None, 'validation': None}
         kwargs.update({'subsample': args.subsample, 'skip_cache': args.skip_cache,
                        'cached_path': os.path.join(args.cache, task.name), 'all_dirs': args.train_languages,
-                       'sentence_batching': args.sentence_batching})
+                       'sentence_batching': args.sentence_batching, 'lang_as_question': args.lang_as_question})
         if args.use_curriculum:
             kwargs['curriculum'] = True
 
@@ -104,7 +104,8 @@ def prepare_data(args, logger):
         if args.eval_set_name is not None:
             kwargs['validation'] = args.eval_set_name
         kwargs.update({'subsample': args.subsample, 'skip_cache': args.skip_cache,
-                       'cached_path': os.path.join(args.cache, task.name), 'all_dirs': args.eval_languages})
+                       'cached_path': os.path.join(args.cache, task.name), 'all_dirs': args.eval_languages,
+                        'lang_as_question': args.lang_as_question})
 
         logger.info(f'Adding {task.name} to validation datasets')
         split = task.get_splits(args.data, lower=args.lower, **kwargs)

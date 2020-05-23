@@ -488,7 +488,7 @@ def load_config_json(args):
                     'trainable_decoder_embeddings', 'trainable_encoder_embeddings', 'train_encoder_embeddings',
                     'train_context_embeddings', 'train_question_embeddings', 'locale', 'use_pretrained_bert',
                     'train_context_embeddings_after', 'train_question_embeddings_after',
-                    'pretrain_context', 'pretrain_mlm_probability', 'force_subword_tokenize']
+                    'pretrain_context', 'pretrain_mlm_probability', 'force_subword_tokenize', 'lang_as_question']
 
         # train and predict scripts have these arguments in common. We use the values from train only if they are not provided in predict
         overwrite = ['val_batch_size', 'num_beams']
@@ -499,7 +499,10 @@ def load_config_json(args):
         for r in retrieve:
             if r in config:
                 setattr(args, r, config[r])
+                
             # backward compatibility with models that were trained before we added these arguments
+            elif r == 'lang_as_question':
+                setattr(args, r, False)
             elif r == 'locale':
                 setattr(args, r, 'en')
             elif r in ('trainable_decoder_embedding', 'trainable_encoder_embeddings', 'pretrain_context',
