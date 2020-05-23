@@ -486,7 +486,8 @@ def load_config_json(args):
         for r in retrieve:
             if r in config:
                 setattr(args, r, config[r])
-            # These are for backward compatibility with models that were trained before we added these arguments
+                
+            # for backward compatibility with models that were trained before we added these arguments
             elif r == 'almond_lang_as_question':
                 setattr(args, r, False)
             elif r == 'locale':

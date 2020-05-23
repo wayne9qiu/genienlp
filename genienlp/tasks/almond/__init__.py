@@ -357,7 +357,7 @@ class AlmondMultiLingual(BaseAlmondTask):
     def metrics(self):
         return ['em', 'bleu']
 
-    def _make_example(self, parts, dir_name=None, **kwargs):
+    def _make_example(self, parts, dir_name, **kwargs):
         _id, sentence, target_code = parts
         language = ISO_to_LANG.get(dir_name, 'Undetected').lower()
         if kwargs.get('almond_lang_as_question'):
