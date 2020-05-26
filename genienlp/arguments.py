@@ -137,7 +137,7 @@ def parse_argv(parser):
     parser.add_argument('--dimension', default=200, type=int, help='output dimensions for all layers')
     parser.add_argument('--rnn_dimension', default=None, type=int, help='output dimensions for RNN layers')
     parser.add_argument('--rnn_layers', default=1, type=int, help='number of layers for RNN modules')
-    parser.add_argument('--rnn_zero_state', default='zero', choices=['zero', 'average'],
+    parser.add_argument('--rnn_zero_state', default='zero', choices=['zero', 'average', 'cls'],
                         help='how to construct RNN zero state (for Identity encoder)')
     parser.add_argument('--transformer_layers', default=2, type=int, help='number of layers for transformer modules')
     parser.add_argument('--transformer_hidden', default=150, type=int, help='hidden size of the transformer modules')
@@ -168,7 +168,7 @@ def parse_argv(parser):
     parser.add_argument('--decoder_embeddings', default='glove+char',
                         help='which pretrained word embedding to use on the decoder side')
     parser.add_argument('--trainable_encoder_embeddings', default=0, type=int,
-                        help='size of trainable portion of encoder embedding (only for Coattention encoder)')
+                        help='size of trainable portion of encoder embedding (only for Coattention encoder and LSTM encoder)')
     parser.add_argument('--trainable_decoder_embeddings', default=0, type=int,
                         help='size of trainable portion of decoder embedding (0 or omit to disable)')
     parser.add_argument('--pretrain_context', default=0, type=int,
