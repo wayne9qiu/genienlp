@@ -113,7 +113,6 @@ class TransformerEmbedding(torch.nn.Module):
 
     def forward(self, input: torch.Tensor, padding=None):
         last_hidden_state, _pooled, hidden_states = self.model(input, attention_mask=(~padding).to(dtype=torch.float))
-
         return EmbeddingOutput(all_layers=hidden_states, last_layer=last_hidden_state)
 
 
