@@ -51,6 +51,7 @@ from .util import elapsed_time, set_seed, preprocess_examples, get_trainable_par
 from .model_utils.parallel_utils import NamedTupleCompatibleDataParallel
 from .model_utils.saver import Saver
 from .validate import validate
+from torch.nn import DataParallel
 
 
 def initialize_logger(args):
@@ -163,7 +164,12 @@ def train_step(model, batch, iteration, opt, devices, lr_scheduler=None, grad_cl
                                                iteration > train_question_embeddings_after)
     if (iteration) % gradient_accumulation_steps == 0:
         opt.zero_grad()
-    loss, predictions = model(batch, iteration, pretraining=pretraining)
+
+    model_kwargs = {'iteration': iteration, 'pretraining': pretraining}
+    print('model_kwargs:', model_kwargs)
+    print('batch_size:', batch.context.value.size())
+    print('batch_device:', batch.context.value.device)
+    loss, predictions = model(batch, **model_kwargs)
     if torch.isnan(loss).any():
         raise RuntimeError('Got NaN loss %s', str(loss))
     if len(devices) > 1:

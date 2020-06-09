@@ -51,7 +51,7 @@ class IdentityEncoder(nn.Module):
             self.dropout = None
             self.projection = None
 
-        if self.args.rnn_layers > 0 and self.args.rnn_zero_state == 'average':
+        if self.args.rnn_layers > 0 and self.args.rnn_zero_state in ['average', 'cls']:
             self.pool = LinearFeedforward(args.dimension, args.dimension, 2 * args.rnn_dimension * args.rnn_layers,
                                           dropout=args.dropout_ratio)
             self.norm = LayerNorm(2 * args.rnn_dimension * args.rnn_layers)
