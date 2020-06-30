@@ -84,7 +84,7 @@ class Batch(NamedTuple):
         assert all(isinstance(ex.example_id, str) for ex in examples)
         extra_field = examples[0].extra_field
         decoder_vocab = numericalizer.decoder_vocab.clone()
-        max_context_len, max_question_len, max_answer_len = -1, -1, -1
+        max_context_len, max_question_len, max_answer_len, max_extra_len = -1, -1, -1, -1
 
         if paired:
             example_pairs = []
@@ -135,7 +135,7 @@ class Batch(NamedTuple):
         all_context_inputs_single = numericalizer.encode_single(context_inputs, decoder_vocab, device=device, max_length=max_context_len-2)
         all_question_inputs_single = numericalizer.encode_single(question_inputs, decoder_vocab, device=device, max_length=max_question_len-2)
         all_answer_inputs_single = numericalizer.encode_single(answer_inputs, decoder_vocab, device=device, max_length=max_answer_len-2)
-        all_extra_inputs_single = numericalizer.encode_single(extra_inputs, decoder_vocab, device=device, max_length=max_answer_len-2)
+        all_extra_inputs_single = numericalizer.encode_single(extra_inputs, decoder_vocab, device=device, max_length=max_extra_len-2)
 
     
         if paired:
