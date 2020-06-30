@@ -81,7 +81,9 @@ def prepare_data(args, logger):
                        'cached_path': os.path.join(args.cache, task.name), 'all_dirs': args.train_languages,
                        'sentence_batching': args.sentence_batching, 'lang_as_question': args.lang_as_question})
         if args.use_curriculum:
-            kwargs['curriculum'] = True
+            kwargs['use_curriculum'] = True
+        if args.aux_aligned:
+            kwargs['aux_aligned'] = True
 
         logger.info(f'Adding {task.name} to training datasets')
         split = task.get_splits(args.data, lower=args.lower, **kwargs)
