@@ -51,7 +51,7 @@ class IdentityEncoder(nn.Module):
             self.dropout = None
             self.projection = None
 
-        if self.args.rnn_layers > 0 and self.args.rnn_zero_state == 'average':
+        if self.args.rnn_layers > 0 and self.args.rnn_zero_state in ['average', 'cls']:
             self.pool = LinearFeedforward(args.dimension, args.dimension, 2 * args.rnn_dimension * args.rnn_layers,
                                           dropout=args.dropout_ratio)
             self.norm = LayerNorm(2 * args.rnn_dimension * args.rnn_layers)
@@ -101,9 +101,7 @@ class IdentityEncoder(nn.Module):
                 if self.args.rnn_zero_state == 'cls':
                     packed_rnn_state = self.norm(self.pool(context_embedded.last_layer[:, 0, :]))
                     
-                else:
-                    assert self.args.rnn_zero_state == 'average'
-    
+                elif self.args.rnn_zero_state == 'average':
                     masked_final_context = context_embedded.last_layer.masked_fill(context_padding.unsqueeze(2), 0)
                     summed_context = torch.sum(masked_final_context, dim=1)
                     average_context = summed_context / context_lengths.unsqueeze(1)
