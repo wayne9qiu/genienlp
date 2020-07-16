@@ -77,7 +77,7 @@ MODEL_CLASSES = {
 
 def parse_argv(parser):
     parser.add_argument("--model_name_or_path", default=None, type=str, required=True,
-                        help="Path to pre-trained model or shortcut name selected in the list: ")
+                        help="Path to pre-trained model or shortcut name selected in the list: {}".format(ALL_MODELS))
     parser.add_argument("--input_file", type=str, help="The file from which we read prompts. Defaults to stdin.")
     parser.add_argument('--input_column', type=int, required=True,
                         help='The column in the input file which contains the input sentences.')
@@ -278,7 +278,6 @@ def run_single_process_generation(args, config):
     model.eval()
 
     tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path, cache_dir=args.cache_dir)
-    bos_token_id = tokenizer.convert_tokens_to_ids(special_tokens['bos_token'])
     eos_token_id = tokenizer.convert_tokens_to_ids(special_tokens['eos_token'])
     sep_token_id = tokenizer.convert_tokens_to_ids(special_tokens['sep_token'])
     pad_token_id = tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
@@ -394,8 +393,8 @@ def run_single_process_generation(args, config):
             if not isinstance(decoded, list):
                 decoded = decoded[:, :].tolist()
             for i, out in enumerate(decoded):
-                # if args.model_type=='bart' or args.model_type=='mbart':
-                #     out = out[1:] # remove </s> token at the beginning
+                if args.model_type=='bart' or args.model_type=='mbart':
+                    out = out[1:] # remove </s> token at the beginning
                 sample_index = (i//args.num_samples[hyperparameter_idx]) % batch_size
                 if not args.output_prompt:
                     out = out[len(batch_prompt_tokens[sample_index]):]
