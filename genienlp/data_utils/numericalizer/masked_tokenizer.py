@@ -42,7 +42,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from transformers import BertTokenizer, XLMRobertaTokenizer
+from transformers import BertTokenizer, XLMRobertaTokenizer, BartTokenizer
 from collections import OrderedDict
 
 
@@ -187,6 +187,34 @@ class MaskedBertTokenizer(BertTokenizer):
 
     def tokenize(self, tokens, mask=None):
         return self.wordpiece_tokenizer.tokenize(tokens, mask)
+
+    # provide an interface similar to Vocab
+
+    def __len__(self):
+        return len(self.vocab) + len(self.added_tokens_encoder)
+
+    @property
+    def stoi(self):
+        return self._stoi
+
+    @property
+    def itos(self):
+        return self._itos
+
+
+class MaskedBartTokenizer(BartTokenizer):
+    #TODO currently, this tokenizer ignores masks
+    """
+    A modified BartTokenizer that respects a mask deciding whether a token should be split or not.
+    """
+
+    def __init__(self, *args, do_lower_case=False, do_basic_tokenize=False, **kwargs):
+        super().__init__(*args, do_lower_case=False, do_basic_tokenize=False, **kwargs)
+        self._itos = IToSWrapper(self.ids_to_tokens, self.added_tokens_decoder)
+        self._stoi = SToIWrapper(self.vocab, self.added_tokens_encoder)
+
+    def tokenize(self, tokens, mask=None):
+        return self.tokenize(tokens)
 
     # provide an interface similar to Vocab
 
