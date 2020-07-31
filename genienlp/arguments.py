@@ -138,7 +138,7 @@ def parse_argv(parser):
     parser.add_argument("--no_repeat_ngram_size", type=int, nargs='+', default=[0], help='ngrams of this size cannot be repeated in the output. 0 disables it.')
 
 
-    parser.add_argument('--model', type=str, choices=['MQAN', 'Bart'], default='MQAN', help='which model to import')
+    parser.add_argument('--model', type=str, choices=['Seq2Seq', 'Bart'], default='Seq2Seq', help='which model to import')
     parser.add_argument('--seq2seq_encoder', type=str, choices=['MQANEncoder', 'BiLSTM', 'Identity', 'Coattention'],
                         default='MQANEncoder', help='which encoder to use for the Seq2Seq model')
     parser.add_argument('--seq2seq_decoder', type=str, choices=['MQANDecoder'], default='MQANDecoder',
