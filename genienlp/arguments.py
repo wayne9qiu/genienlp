@@ -112,8 +112,6 @@ def parse_argv(parser):
                         help='multiplicative constant choosing the weight of encoder_loss in total loss')
     parser.add_argument('--eval_set_name', type=str, help='Evaluation dataset name to use during training')
 
-    
-    parser.add_argument('--vocab_tasks', nargs='+', type=str, help='tasks to use in the construction of the vocabulary')
     parser.add_argument('--max_output_length', default=100, type=int, help='maximum output length for generation')
     parser.add_argument('--max_generative_vocab', default=50000, type=int,
                         help='max vocabulary for the generative softmax')
@@ -140,7 +138,7 @@ def parse_argv(parser):
     parser.add_argument("--no_repeat_ngram_size", type=int, nargs='+', default=[0], help='ngrams of this size cannot be repeated in the output. 0 disables it.')
 
 
-    parser.add_argument('--model', type=str, choices=['Seq2Seq'], default='Seq2Seq', help='which model to import')
+    parser.add_argument('--model', type=str, choices=['MQAN', 'Bart'], default='MQAN', help='which model to import')
     parser.add_argument('--seq2seq_encoder', type=str, choices=['MQANEncoder', 'BiLSTM', 'Identity', 'Coattention'],
                         default='MQANEncoder', help='which encoder to use for the Seq2Seq model')
     parser.add_argument('--seq2seq_decoder', type=str, choices=['MQANDecoder'], default='MQANDecoder',
@@ -155,8 +153,8 @@ def parse_argv(parser):
     parser.add_argument('--transformer_heads', default=3, type=int, help='number of heads for transformer modules')
     parser.add_argument('--dropout_ratio', default=0.2, type=float, help='dropout for the model')
 
-    parser.add_argument('--encoder_embeddings', default='glove+char',
-                        help='which word embedding to use on the encoder side; use a bert-* pretrained model for BERT; or a xlm-roberta* model for Multi-lingual RoBERTa; '
+    parser.add_argument('--encoder_embeddings', default=None,
+                        help='which word embedding to use on the encoder side; use `glove+char`, a bert-* model for pretrained BERT; or a xlm-roberta* model for Multi-lingual RoBERTa; '
                              'multiple embeddings can be concatenated with +; use @0, @1 to specify untied copies')
     parser.add_argument('--context_embeddings', default=None,
                         help='which word embedding to use for the context; use a bert-* pretrained model for BERT; '
@@ -209,7 +207,6 @@ def parse_argv(parser):
     parser.add_argument('--lr_rate', default=0.001, type=float, help='fixed learning rate (if not using warmup)')
     parser.add_argument('--weight_decay', default=0.0, type=float, help='weight L2 regularization')
     parser.add_argument('--gradient_accumulation_steps', default=1, type=int, help='Number of accumulation steps. Useful to effectively get larger batch sizes.')
-    
 
     parser.add_argument('--load', default=None, type=str, help='path to checkpoint to load model from inside args.save')
     parser.add_argument('--resume', action='store_true', help='whether to resume training with past optimizers')
