@@ -23,4 +23,4 @@ radam = {git = "https://github.com/LiyuanLucasLiu/RAdam"}
 sentencepiece = ">=0.1.83,<0.2.0"
 
 [requires]
-python_version = "3.6"
+python_version = "3.6.1"
