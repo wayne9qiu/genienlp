@@ -174,7 +174,7 @@ class BaseAlmondTask(BaseTask):
                     preprocessed_context += word.split('_')
                 else:
                     preprocessed_context.append(token)
-            tokens = preprocessed_context
+            tokens = [tok for tok in preprocessed_context if tok]
 
         if self._is_program_field(field_name):
             mask = []
