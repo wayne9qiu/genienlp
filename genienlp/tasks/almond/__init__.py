@@ -115,10 +115,10 @@ class AlmondDataset(CQA):
     
 
 def is_entity(token):
-    return token[0].isupper()
+    return token and token[0].isupper()
 
 def is_device(token):
-    return token[0] == '@'
+    return token and token[0] == '@'
 
 def process_id(ex):
     id_ = ex.example_id.rsplit('/', 1)
