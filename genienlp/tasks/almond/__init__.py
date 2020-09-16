@@ -31,12 +31,14 @@ import os
 import torch
 import logging
 import re
-import json
+import ujson
 import math
 from tqdm import tqdm
 from collections import defaultdict
 # import multiprocessing as mp
 import pathos.multiprocessing as mp
+from pytrie import SortedStringTrie as Trie
+import marisa_trie
 
 
 from ..base_task import BaseTask
@@ -45,7 +47,7 @@ from ..generic_dataset import CQA, context_answer_len, token_batch_fn, default_b
 from ...data_utils.example import Example
 from ...data_utils.database import Database, LocalElasticDatabase, RemoteElasticDatabase, DOMAIN_TYPE_MAPPING
 from ...data_utils.bootleg import BootlegAnnotator
-from ...util import es_dump_type2id, is_chinese_char
+from ...util import es_dump_type2id, es_dump_canonical2type, is_chinese_char
 
 from ..base_dataset import Split
 
@@ -86,6 +88,8 @@ def process(args):
             continue
         chunk_examples.extend(make_process_example(batch, dir_name, **kwargs))
         batch = []
+        if len(chunk_examples) >= chunk_size:
+            break
     
     return chunk_examples
 
@@ -205,7 +209,24 @@ class BaseAlmondTask(BaseTask):
     def __init__(self, name, args):
         super().__init__(name, args)
         self.args = args
-        self._preprocess_context = args.almond_preprocess_context
+        
+        no_process_fields = []
+        if self.args.override_question:
+            no_process_fields.append('question')
+        if self.args.override_context:
+            no_process_fields.append('context')
+            
+        # if not self.args.append_question_to_context_too:
+        #     no_process_fields.append('context_plus_question')
+        
+        self.no_process_fields = no_process_fields
+
+        no_feature_fields = ['answer']
+        if self.is_contextual():
+            no_feature_fields.append('context')
+        else:
+            no_feature_fields.append('question')
+        self.no_feature_fields = no_feature_fields
         
         # initialize the database
         if args.do_entity_linking:
@@ -252,26 +273,54 @@ class BaseAlmondTask(BaseTask):
     def _init_db(self):
         if self.args.database_type in ['json', 'local-elastic']:
             with open(self.args.database, 'r') as fin:
-                db_data = json.load(fin)
+                db_data = ujson.load(fin)
                 # lowercase all keys
                 db_data_processed = {key.lower(): value for key, value in db_data.items()}
         elif self.args.database_type == 'remote-elastic':
             with open(self.args.elastic_config, 'r') as fin:
-                es_config = json.load(fin)
+                es_config = ujson.load(fin)
+                
             type2id = dict()
             if self.args.type2id_dict:
                 with open(self.args.type2id_dict, 'r') as fin:
-                    type2id = json.load(fin)
-    
+                    type2id = ujson.load(fin)
+                    unk_id = 0
+            alias2qid = dict()
+
+            all_aliases = []
+            if self.args.alias2qid_dict:
+                with open(self.args.alias2qid_dict, 'r') as fin:
+                    alias2qid_loaded = ujson.load(fin)
+                    # choose candidate with highest score
+                    for alias, candidates in tqdm(alias2qid_loaded.items()):
+                        alias2qid[alias] = candidates[0][0]
+                    all_aliases = marisa_trie.Trie(alias2qid.keys())
+            
+            qid2typeid = dict()
+            if self.args.qid2typeid_dict:
+                with open(self.args.qid2typeid_dict, 'r') as fin:
+                    qid2typeid_loaded = ujson.load(fin)
+                # ids start from 0
+                all_type_ids = set([val for values in qid2typeid_loaded.values() for val in values])
+                unk_id = len(all_type_ids)
+                logger.info('UNK type id is: {}'.format(unk_id))
+                for qid, type_id in tqdm(qid2typeid_loaded.items()):
+                    if len(type_id):
+                        qid2typeid[qid] = type_id[0]
+                    else:
+                        qid2typeid[qid] = unk_id
+
+
         if self.args.database_type == 'json':
             self.db = Database(db_data_processed)
         elif self.args.database_type == 'local-elastic':
             self.db = LocalElasticDatabase(db_data_processed)
         elif self.args.database_type == 'remote-elastic':
-            self.db = RemoteElasticDatabase(es_config, type2id)
+            self.db = RemoteElasticDatabase(es_config, unk_id, all_aliases, type2id, alias2qid, qid2typeid)
             if self.args.create_type_mapping:
-                es_dump_type2id(self.db)
-    
+                # es_dump_type2id(self.db)
+                es_dump_canonical2type(self.db)
+        
         self.TTtype2DBtype = dict()
         for domain in self.args.almond_domains:
             self.TTtype2DBtype.update(DOMAIN_TYPE_MAPPING[domain])
@@ -360,8 +409,10 @@ class BaseAlmondTask(BaseTask):
                     all_tokens_type_ids = self.db.batch_lookup(tokens_list, subset=entity2type,
                                                      retrieve_method='oracle', lookup_method=self.args.lookup_method)
             else:
-                all_tokens_type_ids = self.db.batch_lookup(tokens_list, allow_fuzzy=self.args.allow_fuzzy)
-        
+                # all_tokens_type_ids = self.db.batch_lookup(tokens_list, allow_fuzzy=self.args.allow_fuzzy)
+                for tokens in tokens_list:
+                    all_tokens_type_ids.append(self.db.single_local_lookup(tokens, allow_fuzzy=self.args.allow_fuzzy, max_alias_len=self.args.max_alias_len))
+                    
         return all_tokens_type_ids
     
     def find_freqs(self, tokens, tokens_type_ids):
@@ -388,42 +439,45 @@ class BaseAlmondTask(BaseTask):
         return "".join(output)
     
     def tokenize(self, sentence_list, field_name=None, answer_list=None):
+        
         all_tokens, all_masks, all_features = [], [], []
+        
+        if field_name in self.no_process_fields:
+            return [[]]*len(sentence_list), [[]]*len(sentence_list), [[]]*len(sentence_list)
+        
         for sentence, answer in zip(sentence_list, answer_list):
             tokens, masks = self.tokenize_single(sentence, field_name)
             all_tokens.append(tokens)
             all_masks.append(masks)
 
-        all_tokens_type_ids = []
-        all_token_freqs = []
-        if self.args.do_entity_linking and field_name in ('question', 'context', 'context_question'):
+        all_tokens_type_ids = [[self.db.unk_id]*len(tokens) for tokens in all_tokens]
+        all_token_freqs = [[]]*len(sentence_list)
+        if self.args.do_entity_linking and field_name not in self.no_feature_fields:
             if 'type' in self.args.features:
                 all_tokens_type_ids = self.batch_find_types(all_tokens, answer_list)
             if 'freq' in self.args.features:
                 for tokens, tokens_type_ids in zip(all_tokens, all_tokens_type_ids):
                     all_token_freqs.append(self.find_freqs(tokens, tokens_type_ids))
-        if self.args.verbose and self.args.do_entity_linking and \
-                ((self.is_contextual() and field_name == 'question') or
-                 (not self.is_contextual() and field_name == 'context')):
+        if self.args.verbose and self.args.do_entity_linking:
             for tokens, tokens_type_ids in zip(all_tokens, all_tokens_type_ids):
                 print()
-                print(*[f'entity: {token}\ttype: {token_type}' for token, token_type in zip(tokens, tokens_type_ids)],
-                      sep='\n')
+                print(*[f'entity: {token}\ttype: {token_type}' for token, token_type in zip(tokens, tokens_type_ids)], sep='\n')
         
         all_features = []
         for i in range(len(sentence_list)):
             zip_list = []
             tokens = all_tokens[i]
-            if all_tokens_type_ids:
+            if all_tokens_type_ids[i]:
                 tokens_type_ids = all_tokens_type_ids[i]
                 assert len(tokens) == len(tokens_type_ids)
                 zip_list.append(tokens_type_ids)
-            if all_token_freqs:
+            if all_token_freqs[i]:
                 token_freqs = all_token_freqs[i]
                 assert len(tokens) == len(token_freqs)
                 zip_list.append(token_freqs)
             features = list(zip(*zip_list))
             all_features.append(features)
+
 
         return all_tokens, all_masks, all_features
         
@@ -439,7 +493,7 @@ class BaseAlmondTask(BaseTask):
             tokens = sentence.split(' ')
         else:
             tokens = [t for t in sentence.split(' ') if len(t) > 0]
-            if self._preprocess_context and field_name in ('context', 'context_question'):
+            if self.args.almond_preprocess_context and field_name in ('context', 'context_plus_question'):
                 tokens = self.preprocess_context(sentence)
  
         if self.force_subword_tokenize:

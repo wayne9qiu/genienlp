@@ -75,8 +75,10 @@ class IdentityEncoder(nn.Module):
         context_entity_types = None
         question_entity_types = None
         if self.args.num_db_types > 0 and self.args.entity_type_embed_pos == 'bottom':
-            context_entity_types = batch.context.feature[:, :, 0].long()
-            question_entity_types = batch.question.feature[:, :, 0].long()
+            if batch.context.feature.nelement() != 0:
+                context_entity_types = batch.context.feature[:, :, 0].long()
+            if batch.question.feature.nelement() != 0:
+                question_entity_types = batch.question.feature[:, :, 0].long()
 
         context_embedded = self.encoder_embeddings(context, entity_ids=context_entity_types, padding=context_padding)
         question_embedded = self.encoder_embeddings(question, entity_ids=question_entity_types, padding=question_padding)

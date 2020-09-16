@@ -250,10 +250,13 @@ def parse_argv(parser):
                         help='database to interact with for NER')
     parser.add_argument('--elastic_config', type=str, help='Path to json file containing ES configs (used for remote-elastic only)')
     parser.add_argument('--type2id_dict', type=str, help='Path to json file containing mapping between wikidata types to their ids')
+    parser.add_argument('--alias2qid_dict', type=str, help='Path to json file containing mapping between aliases to their wikidata Qids')
+    parser.add_argument('--qid2typeid_dict', type=str, help='Path to json file containing mapping between wikidata entity Qids to their type ids')
     parser.add_argument('--create_type_mapping', action='store_true', help='This will create the "type to id" mapping for ALL entities available in the database')
     parser.add_argument('--num_workers', type=int, default=0, help='Number of workers for multiprocessing. 0 means no multiprocessing')
 
     parser.add_argument('--allow_fuzzy', action='store_true', help='Allow fuzzy matching when looking up strings in the database')
+    parser.add_argument('--max_alias_len', type=int, default=3, help='N-gram maximum length for alias matching')
     parser.add_argument('--database', type=str, help='Database to retrieve entities from')
     parser.add_argument('--bootleg_input_dir', type=str, help='Path to folder containing all files (e.g. alias2qids, pretrained models) for bootleg')
     parser.add_argument('--bootleg_device', type=str, choices=['cpu', 'cuda'], help='Device that bootleg model will reside one')

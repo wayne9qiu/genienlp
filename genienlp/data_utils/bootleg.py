@@ -1,6 +1,7 @@
 import os
 import logging
 import json
+import time
 
 from bootleg.annotator import Annotator
 from bootleg.utils import train_utils
@@ -21,13 +22,14 @@ class BootlegAnnotator(Annotator):
             cand_map = f'{self.bootleg_dir}/test/data/model_training/entity_db/entity_mappings/alias2qids.json'
         else:
             cand_map = f'{self.bootleg_dir}/entity_db/entity_mappings/alias2qids_wiki.json'
-        
+            
+        self.process_time = 0
         
         config_args = self.adjust_config_args(config_args)
 
         qid2types_file = os.path.join(config_args.data_config.emb_dir, 'wikidata_types_wiki_filt.json')
         
-        if qid2types_file is not None:
+        if os.path.exists(qid2types_file):
             with open(qid2types_file, 'r') as fin:
                 self.qid2types = json.load(fin)
             self.unk_type_id = max([max(values) for values in self.qid2types.values() if len(values)]) + 1
@@ -117,7 +119,12 @@ class BootlegAnnotator(Annotator):
 
         all_tokens_type_id = [[self.unk_type_id] * len(tokens) for tokens in tokens_list]
         
+        
+        t0 = time.time()
         result, is_ok_sample = self.batch_label_sentences([' '.join(tokens) for tokens in tokens_list])
+        t1 = time.time()
+        
+        self.process_time += t1 - t0
         
         if result is None:
             return all_tokens_type_id

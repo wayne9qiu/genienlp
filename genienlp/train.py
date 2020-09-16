@@ -93,6 +93,9 @@ def prepare_data(args, logger):
         split = task.get_splits(args.data, lower=args.lower, **kwargs)
         t1 = time.time()
         logger.info('it took {} to process train set'.format(t1-t0))
+        logger.info('it took {} to do ES HTTP requests'.format(task.db.time))
+        if hasattr(task, 'bootleg'):
+            logger.info('labelling only took {}'.format(task.bootleg_annot.process_time))
         assert not split.eval and not split.test
         if args.use_curriculum:
             assert split.aux
@@ -112,7 +115,7 @@ def prepare_data(args, logger):
                     args.type_unk_id = task.bootleg_annot.unk_type_id
             elif hasattr(task, 'db'):
                 args.num_db_types = len(task.db.type2id)
-                args.type_unk_id = 0
+                args.type_unk_id = task.db.unk_id
             else:
                 args.num_db_types = 0
                 args.type_unk_id = 0
@@ -129,7 +132,10 @@ def prepare_data(args, logger):
                         'almond_lang_as_question': args.almond_lang_as_question, 'example_batch_size': args.example_batch_size, 'num_workers': args.num_workers})
         
         logger.info(f'Adding {task.name} to validation datasets')
+        t0 = time.time()
         split = task.get_splits(args.data, lower=args.lower, **kwargs)
+        t1 = time.time()
+        logger.info('it took {} to process eval set'.format(t1 - t0))
         assert not split.train and not split.test and not split.aux
         logger.info(f'{task.name} has {len(split.eval)} validation examples')
         val_sets.append(split.eval)

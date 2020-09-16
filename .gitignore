@@ -25,6 +25,7 @@ text/.DS_Store
 src/
 workdir/
 *save*/
+generated/
 
 lightning_logs/
 pytorch_model.bin

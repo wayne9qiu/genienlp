@@ -37,6 +37,9 @@ from pytrie import SortedStringTrie as Trie
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from elasticsearch import exceptions
 
+from bootleg.extract_mentions import get_lnrm
+import string
+
 
 tracer = logging.getLogger('elasticsearch')
 tracer.setLevel(logging.CRITICAL)
@@ -63,7 +66,7 @@ BANNED_WORDS = set(
                 ['music', 'musics', 'name', 'names', 'want', 'wants', 'album', 'albums', 'please', 'who', 'show me',
                 'play', 'play me', 'plays', 'track', 'tracks', 'song', 'songs', 'record', 'records', 'recordings', 'album', 'something',
                 'resume', 'resumes', 'find me', 'the', 'search for me', 'search', 'searches', 'yes', 'yeah', 'popular',
-                'release', 'released', 'dance', 'dancing', 'i need', 'i would', ' i will', 'find', 'the list']
+                'release', 'released', 'dance', 'dancing', 'need', 'i need', 'i would', ' i will', 'find', 'the list', 'get some']
                    )
 
 def is_special_case(key):
@@ -181,10 +184,20 @@ class ElasticDatabase(object):
     def __init__(self):
         self.unk_type = 'unk'
         self.type2id = {self.unk_type: 0}
+        self.unk_id = 0
+        self.all_aliases = {}
+        self.alias2qid = {}
+        self.qid2typeid = {}
+        self.canonical2type = {}
         self.index = None
         self.es = None
+        self.time = 0
+        
+        PUNC = string.punctuation
+        table = str.maketrans(dict.fromkeys(PUNC))  # OR {key: None for key in string.punctuation}
+        self.trans_table = table
 
-    def batch_find_matches(self, keys_list, query_temp):
+    def batch_es_find_matches(self, keys_list, query_temp):
         
         queries = []
         for key in keys_list:
@@ -199,7 +212,10 @@ class ElasticDatabase(object):
         result = None
         while retries < ES_RETRY_ATTEMPTS:
             try:
+                t0 = time.time()
                 result = self.es.msearch(index=self.index, body=request)
+                t1 = time.time()
+                self.time += t1-t0
                 break
             except (exceptions.ConnectionTimeout, exceptions.ConnectionError, exceptions.TransportError):
                 logger.warning('Connection Timed Out!')
@@ -211,7 +227,138 @@ class ElasticDatabase(object):
 
         matches = [res['hits']['hits'] for res in result['responses']]
         return matches
+    
+    def single_local_lookup(self, tokens, **kwargs):
+    
+        token_type_ids = [self.unk_id] * len(tokens)
+    
+        max_alias_len = kwargs.get('max_alias_len', 3)
+        max_alias_len = min(max_alias_len, len(tokens))
+        
+        # following code is adopted from bootleg's "find_aliases_in_sentence_tag"
+        used_aliases = []
+        # find largest aliases first
+        for n in range(max_alias_len, 0, -1):
+            grams = nltk.ngrams(tokens, n)
+            j_st = -1
+            j_end = n - 1
+            gram_attempts = []
+            span_begs = []
+            span_ends = []
+            for gram_words in grams:
+                j_st += 1
+                j_end += 1
+                # We don't want punctuation words to be used at the beginning/end
+                if len(gram_words[0].translate(self.trans_table).strip()) == 0 or len(
+                        gram_words[-1].translate(self.trans_table).strip()) == 0:
+                    continue
+                gram_attempt = get_lnrm(" ".join(gram_words))
+                # TODO: remove possessives from alias table
+                if len(gram_attempt) > 1:
+                    if gram_attempt[-1] == 's' and gram_attempt[-2] == ' ':
+                        continue
+                # gram_attempts.append(gram_attempt)
+                # span_begs.append(j_st)
+                # span_ends.append(j_end)
+                
+                if not is_special_case(gram_attempt) and gram_attempt in self.all_aliases:
+                    keep = True
+                
+                    for u_al in used_aliases:
+                        u_j_st = u_al[1]
+                        u_j_end = u_al[2]
+                        if j_st < u_j_end and j_end > u_j_st:
+                            keep = False
+                            break
+                    if not keep:
+                        continue
+                    
+                    used_aliases.append(tuple([self.qid2typeid.get(self.alias2qid[gram_attempt], self.unk_id), j_st, j_end]))
+    
+        for type_id, beg, end in used_aliases:
+            token_type_ids[beg:end] = [type_id] * (end - beg)
+        return token_type_ids
 
+    def single_es_lookup(self, tokens, **kwargs):
+        
+        token_type_ids = [self.type2id['unk']] * len(tokens)
+        
+        allow_fuzzy = kwargs.get('allow_fuzzy', False)
+        if allow_fuzzy:
+            query_temp = json.dumps({"size": 1, "query": { "multi_match": {"query": "{}", "fields": ["canonical^8", "aliases^3"], "fuzziness": "AUTO"}}})
+        else:
+            query_temp = json.dumps({"size": 1, "query": {"multi_match": {"query": "{}", "fields": ["canonical^8", "aliases^3"]}}})
+
+        max_alias_len = kwargs.get('max_alias_len', 3)
+        max_alias_len = min(max_alias_len, len(tokens))
+        
+        # following code is adopted from bootleg's "find_aliases_in_sentence_tag"
+        used_aliases = []
+        # find largest aliases first
+        for n in range(max_alias_len, 0, -1):
+            grams = nltk.ngrams(tokens, n)
+            j_st = -1
+            j_end = n - 1
+            gram_attempts = []
+            span_begs = []
+            span_ends = []
+            for gram_words in grams:
+                j_st += 1
+                j_end += 1
+                # We don't want punctuation words to be used at the beginning/end
+                if len(gram_words[0].translate(self.trans_table).strip()) == 0 or len(
+                        gram_words[-1].translate(self.trans_table).strip()) == 0:
+                    continue
+                gram_attempt = get_lnrm(" ".join(gram_words))
+                # TODO: remove possessives from alias table
+                if len(gram_attempt) > 1:
+                    if gram_attempt[-1] == 's' and gram_attempt[-2] == ' ':
+                        continue
+                gram_attempts.append(gram_attempt)
+                span_begs.append(j_st)
+                span_ends.append(j_end)
+                
+                
+            # all_matches = self.batch_local_find_matches(gram_attempts)
+            all_matches = self.batch_es_find_matches(gram_attempts, query_temp)
+            # all_matches = [[]] * len(gram_attempts)
+            # all_matches[-2] = [{'_source': {'canonical': gram_attempts[-2], 'type': 'org.wikidata:Q101352'}}]
+            for i in range(len(all_matches)):
+                match = all_matches[i]
+                assert len(match) in [0, 1]
+    
+                # sometimes we have tokens like '.' or ',' which receives no match
+                if len(match) == 0:
+                    continue
+    
+                match = match[0]
+                canonical = match['_source']['canonical']
+                type = match['_source']['type']
+                if not is_special_case(canonical) and canonical == gram_attempts[i]:
+                    keep = True
+
+                    for u_al in used_aliases:
+                        u_j_st = u_al[1]
+                        u_j_end = u_al[2]
+                        if span_begs[i] < u_j_end and span_ends[i] > u_j_st:
+                            keep = False
+                            break
+                    if not keep:
+                        continue
+
+                    used_aliases.append(tuple([type, span_begs[i], span_ends[i]]))
+                    
+        for type, beg, end in used_aliases:
+            token_type_ids[beg:end] = [self.type2id[type]] * (end - beg)
+        return token_type_ids
+        
+    
+        # sort based on span order
+        # aliases_for_sorting = sorted(used_aliases, key=lambda elem: [elem[1], elem[2]])
+        # used_aliases = [a[0] for a in aliases_for_sorting]
+        # spans = ["{}:{}".format(a[1], a[2]) for a in aliases_for_sorting]
+        # return used_aliases, spans
+        
 
     def batch_lookup(self, tokens_list, **kwargs):
         allow_fuzzy = kwargs.get('allow_fuzzy', False)
@@ -222,14 +369,16 @@ class ElasticDatabase(object):
         all_ends = [len(tokens) for tokens in tokens_list]
         all_tokens_type_ids = [[] for _ in range(length)]
         all_done = [False] * length
-        
+
+        if allow_fuzzy:
+            query_temp = json.dumps({"size": 1, "query": {
+                "multi_match": {"query": "{}", "fields": ["canonical^8", "aliases^3"], "fuzziness": "AUTO"}}})
+        else:
+            query_temp = json.dumps(
+                {"size": 1, "query": {"multi_match": {"query": "{}", "fields": ["canonical^8", "aliases^3"]}}})
+
         while not all(all_done):
             batch_to_lookup = [' '.join(tokens[all_currs[i]:all_ends[i]]) for i, tokens in enumerate(tokens_list)]
-            
-            if allow_fuzzy:
-                query_temp = json.dumps({"size": 1, "query": {"multi_match": {"query": "{}", "fields": ["canonical^8", "aliases^3"], "fuzziness": "AUTO"}}})
-            else:
-                query_temp = json.dumps({"size": 1, "query": {"multi_match": {"query": "{}", "fields": ["canonical^8", "aliases^3"]}}})
             
             all_matches = self.batch_find_matches(batch_to_lookup, query_temp)
             
@@ -240,7 +389,7 @@ class ElasticDatabase(object):
                 match = all_matches[i]
                 assert len(match) in [0, 1]
                 
-                # sometimes we have tokens like '.' or ',' which recieves no match
+                # sometimes we have tokens like '.' or ',' which receives no match
                 if len(match) == 0:
                     all_ends[i] -= 1
                     continue
@@ -253,7 +402,7 @@ class ElasticDatabase(object):
                     all_currs[i] = all_ends[i]
                 else:
                     all_ends[i] -= 1
-                    
+            
             for j in range(length):
                 # no matches were found for the span starting from current index
                 if all_currs[j] == all_ends[j] and not all_currs[j] >= all_lengths[j]:
@@ -275,9 +424,13 @@ class XPackClientMPCompatible(XPackClient):
 
 class RemoteElasticDatabase(ElasticDatabase):
     
-    def __init__(self, config, type2id):
+    def __init__(self, config, unk_id, all_aliases, type2id, alias2qid, qid2typeid):
         super().__init__()
         self.type2id = type2id
+        self.all_aliases = all_aliases
+        self.unk_id = unk_id
+        self.alias2qid = alias2qid
+        self.qid2typeid = qid2typeid
         self._init_db(config)
         
     
