@@ -75,8 +75,8 @@ class Example(NamedTuple):
         args = []
         args.append(all_example_ids)
         
-        for argname, arg in (('context', all_contexts), ('question', all_questions), ('answer', all_answers)):
-                             # ('context_plus_question', [context + ' ' + question for context, question in zip(all_contexts, all_questions)])):
+        for argname, arg in (('context', all_contexts), ('question', all_questions), ('answer', all_answers),
+                             ('context_plus_question', [context + ' ' + question for context, question in zip(all_contexts, all_questions)])):
             all_words, all_masks, all_features = tokenize(arg, field_name=argname, answer_list=all_answers)
             for i, mask in enumerate(all_masks):
                 if mask is None:
@@ -92,13 +92,13 @@ class Example(NamedTuple):
         
         
         # prepare context_plus_question
-        all_context_plus_question_words = [context_word + question_word for context_word, question_word in zip(args[1], args[4])]
-        all_context_plus_question_masks = [context_mask + question_mask for context_mask, question_mask in zip(args[2], args[5])]
-        all_context_plus_question_features = [context_feat + question_feat for context_feat, question_feat in zip(args[3], args[6])]
-
-        args.append(all_context_plus_question_words)
-        args.append(all_context_plus_question_masks)
-        args.append(all_context_plus_question_features)
+        # all_context_plus_question_words = [context_word + question_word for context_word, question_word in zip(args[1], args[4])]
+        # all_context_plus_question_masks = [context_mask + question_mask for context_mask, question_mask in zip(args[2], args[5])]
+        # all_context_plus_question_features = [context_feat + question_feat for context_feat, question_feat in zip(args[3], args[6])]
+        #
+        # args.append(all_context_plus_question_words)
+        # args.append(all_context_plus_question_masks)
+        # args.append(all_context_plus_question_features)
 
         # return a list of Example(s)
         return [Example(*arg) for arg in list(zip(*args))]

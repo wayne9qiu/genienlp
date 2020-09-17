@@ -211,10 +211,10 @@ class BaseAlmondTask(BaseTask):
         self.args = args
         
         no_process_fields = []
-        if self.args.override_question:
-            no_process_fields.append('question')
-        if self.args.override_context:
-            no_process_fields.append('context')
+        # if self.args.override_question:
+        #     no_process_fields.append('question')
+        # if self.args.override_context:
+        #     no_process_fields.append('context')
             
         # if not self.args.append_question_to_context_too:
         #     no_process_fields.append('context_plus_question')
