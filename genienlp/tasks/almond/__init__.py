@@ -440,6 +440,11 @@ class BaseAlmondTask(BaseTask):
     
     def tokenize(self, sentence_list, field_name=None, answer_list=None):
         
+        if hasattr(self, 'db'):
+            unk_id = self.db.unk_id
+        else:
+            unk_id = 0
+        
         all_tokens, all_masks, all_features = [], [], []
         
         if field_name in self.no_process_fields:
@@ -450,7 +455,7 @@ class BaseAlmondTask(BaseTask):
             all_tokens.append(tokens)
             all_masks.append(masks)
 
-        all_tokens_type_ids = [[self.db.unk_id]*len(tokens) for tokens in all_tokens]
+        all_tokens_type_ids = [[unk_id]*len(tokens) for tokens in all_tokens]
         all_token_freqs = [[]]*len(sentence_list)
         if self.args.do_entity_linking and field_name not in self.no_feature_fields:
             if 'type' in self.args.features:

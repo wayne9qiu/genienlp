@@ -93,7 +93,8 @@ def prepare_data(args, logger):
         split = task.get_splits(args.data, lower=args.lower, **kwargs)
         t1 = time.time()
         logger.info('it took {} to process train set'.format(t1-t0))
-        logger.info('it took {} to do ES HTTP requests'.format(task.db.time))
+        if hasattr(task, 'db'):
+            logger.info('it took {} to do ES HTTP requests'.format(task.db.time))
         if hasattr(task, 'bootleg'):
             logger.info('labelling only took {}'.format(task.bootleg_annot.process_time))
         assert not split.eval and not split.test
