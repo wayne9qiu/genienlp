@@ -136,6 +136,7 @@ class BaseAlmondTask(BaseTask):
     def __init__(self, name, args):
         super().__init__(name, args)
         self._preprocess_context = args.almond_preprocess_context
+        self._almond_has_multiple_programs = args.almond_has_multiple_programs
 
     @property
     def metrics(self):
@@ -224,7 +225,10 @@ class Almond(BaseAlmondTask):
     def _make_example(self, parts, dir_name=None, **kwargs):
         # the question is irrelevant, so the question says English and ThingTalk even if we're doing
         # a different language (like Chinese)
-        _id, sentence, target_code = parts
+        if self._almond_has_multiple_programs:
+            _id, sentence, target_code = parts[:3]
+        else:
+            _id, sentence, target_code = parts
         question = 'translate from english to thingtalk'
         context = sentence
         answer = target_code
@@ -435,7 +439,10 @@ class AlmondMultiLingual(BaseAlmondMultiLingualTask):
         return ['em', 'bleu']
     
     def _make_example(self, parts, dir_name, **kwargs):
-        _id, sentence, target_code = parts
+        if self._almond_has_multiple_programs:
+            _id, sentence, target_code = parts[:3]
+        else:
+            _id, sentence, target_code = parts
         language = ISO_to_LANG.get(dir_name, 'English').lower()
         if kwargs.get('lang_as_question'):
             question = 'translate from {} to thingtalk'.format(language)
